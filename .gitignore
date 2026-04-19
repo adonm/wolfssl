@@ -492,3 +492,4 @@ compile_commands.json
 
 # Python cache
 __pycache__/
+.tmp/
