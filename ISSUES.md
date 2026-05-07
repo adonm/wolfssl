@@ -1,190 +1,454 @@
 # Audit Issues
 
-> Generated with [oy-cli](https://github.com/wagov-dtt/oy-cli): `OY_MODEL=copilot:gpt-5.4 oy audit`
+> Generated with [oy-cli](https://github.com/wagov-dtt/oy-cli): `OY_MODEL=opencode-go/deepseek-v4-pro oy audit` · 2026-05-06
 
->
-> **Last audit**: 2026-04-19 · commit `922d04b35` · references: [OWASP ASVS 5.0](https://owasp.org/www-project-application-security-verification-standard/) and [grugbrain.dev](https://grugbrain.dev/)
->
-> **Scope**: 3022 reviewable files · 1676396 code lines · 2445 counted by sloc
+## Findings summary
 
-Final phase3 rewrite. Raw phase2 inbox notes were deduped; the most important repo-specific issues stay detailed below and the rest are kept concise.
+*Listed by severity. Code references use `file::symbol`. Multiple files denote identical patterns.*
+
+### Critical
+
+- **OCSP responder authorization check bypass** — `src/ocsp.c::CheckOcspResponse`
+- **Heap overflow in AES‑CFB1 via EVP layer** — `wolfcrypt/src/evp.c::evpCipherBlock`
+- **Buffer overflow in devcrypto AES‑GCM tag handling** — `wolfcrypt/src/port/devcrypto/devcrypto_aes.c::wc_DevCrypto_AesGcm`
+- **Global state in MAXQ108X TLS 1.3 callbacks (cross‑connection key confusion)** — `wolfcrypt/src/port/maxim/maxq10xx.c` (multiple statics)
+- **Stack buffer overflow in CAAM QNX `doCMAC`** — `wolfcrypt/src/port/caam/caam_qnx.c::doCMAC`
+- **Stack buffer overflow in CAAM QNX `doBLOB`** — `wolfcrypt/src/port/caam/caam_qnx.c::doBLOB`
+- **Out‑of‑bounds read / integer overflow in kernel DH glue** — `linuxkm/lkcapi_dh_glue.c::km_dh_decode_secret`
+- **`mlkem_rej_uniform_neon` returns pointer instead of count → OOB polynomial writes** — `wolfcrypt/src/port/arm/armv8-mlkem-asm_c.c::mlkem_rej_uniform_neon`
+- **`mlkem_cmp_neon` returns pointer instead of comparison result → constant‑time check broken** — same file `mlkem_cmp_neon`
+
+### High
+
+- **Unsafe scatterlist mapping leads to OOB read in kernel AES‑GCM** — `linuxkm/lkcapi_aes_glue.c::AesGcmCrypt_1`
+- **Stack overflow in shell example `getline()`** — `IDE/MDK5‑ARM/Projects/wolfSSL‑Full/shell.c::getline` (and duplicate)
+- **SAKKE secret‑dependent table lookup (timing side‑channel)** — `wolfcrypt/src/sakke.c::sakke_modexp_loop`
+- **ASM inline operand mis‑constraint in `fe_isnonzero`/`fe_isnegative`** — `wolfcrypt/src/port/arm/armv8-curve25519_c.c::fe_isnonzero`
+- **Wrong return value in `curve25519` / `curve25519_base`** — same file
+- **Aliased internal buffer returned by `wolfSSL_X509_get_ext_d2i` → UAF/double‑free** — `src/x509.c::wolfSSL_X509_get_ext_d2i`
+- **GCM counter increment missing 128‑bit carry** — `wolfcrypt/src/port/arm/thumb2-aes-asm_c.c` / `riscv/riscv-64-aes.c`
+- **Buffer over‑read in `wolfSSL_DSP_ECC_Verify_256` (missing input size validation)** — `wolfcrypt/src/sp_dsp32.c`
+- **Heap overflow in sniffer packet chain assembly** — `src/sniffer.c::ssl_DecodePacketInternal`
+- **Out‑of‑bounds read in `mlkem_thumb2_rej_uniform`** — `wolfcrypt/src/port/arm/thumb2-mlkem-asm_c.c`
+- **Stack buffer overflow in `wolfSSL_EC_POINT_hex2point`** — `src/pk_ec.c`
+- **Integer overflow in `wolfSSL_a2i_ASN1_INTEGER` leading to heap overflow** — `src/ssl_asn1.c`
+- **Stack buffer overflow in RSA‑PSS sign/verify** — `src/pk_rsa.c::wolfssl_rsa_sig_encode`
+- **CRL static revoked list overflow / truncation** — `src/crl.c::CRL_Entry`
+- **Incorrect absolute value comparison in `wolfSSL_BN_ucmp`** — `src/ssl_bn.c`
+- **Hard‑coded test key used for MAXQ108X secure element import** — `wolfcrypt/src/port/maxim/maxq10xx.c::LoadDefaultImportKey`
+- **Integer overflow in CAAM `CAAM_ADR_MAP` size calculations** — `wolfcrypt/src/port/caam/caam_qnx.c` (multiple functions)
+- **QUIC error‑check bypass → underflow / OOB write** — `src/quic.c::wolfSSL_quic_receive`
+- **Missing output buffer size check in `wc_LmsKey_Sign`** — `wolfcrypt/src/ext_lms.c`
+- **UART ISR buffer overflow** — `IDE/iotsafe/devices.c::isr_usart1`
+- **Buffer overflow in custom `realloc`** — `IDE/ECLIPSE/DEOS/deos_malloc.c`
+- **XMSS/MT WOTS chain not constant time** — `wolfcrypt/src/wc_xmss_impl.c::wc_xmss_chain`
+- **XMSS/MT secret key index advanced before successful signing** — same file `wc_xmss_sign`/`wc_xmssmt_sign`
+
+### Medium
+
+- **Wrong free function in SHA‑512/256 final** — `src/ssl_crypto.c::wolfSSL_SHA512_256_Final`
+- **Unprotected global crypto callback array** — `wolfcrypt/src/cryptocb.c` (`gCryptoDev`)
+- **FIPS flag override in kernel module registration** — `linuxkm/lkcapi_glue.c::linuxkm_lkcapi_register`
+- **Missing null termination in shell `wolfssl_fgets()`** — `IDE/MDK5‑ARM/Projects/wolfSSL‑Full/shell.c`
+- **Static `fd` not synchronized in devcrypto** — `wolfcrypt/src/port/devcrypto/wc_devcrypto.c`
+- **Hardcoded size assumptions in `mlkem_cmp_neon` (incomplete comparison)** — `wolfcrypt/src/port/arm/armv8-mlkem-asm_c.c`
+- **OOB read in `mlkem_cmp_neon` when `w2 < 0x300`** — `wolfcrypt/src/port/arm/armv8-mlkem-asm.S`
+- **AES T‑table cache‑timing vulnerability** — `wolfcrypt/src/port/arm/thumb2-aes-asm_c.c`, `riscv-64-aes.c`
+- **GHASH/GMULT table lookup cache‑timing vulnerability** — same files
+- **Timing side‑channel in ML‑KEM rejection sampling (ARM32)** — `wolfcrypt/src/port/arm/armv8-32-mlkem-asm_c.c`
+- **Incorrect return value in `mlkem_thumb2_rej_uniform`** — `wolfcrypt/src/port/arm/thumb2-mlkem-asm_c.c`
+- **RSA‑PSS salt discovery loop not constant time** — `wolfcrypt/src/rsa.c::RsaUnPad_PSS`
+- **DH key agreement does not validate peer public key by default** — `wolfcrypt/src/dh.c::wc_DhAgree_Sync`
+- **Session cache row lock held across application callback** — `src/ssl_sess.c::AddSessionToCache`
+- **Missing mutex protection for MAXQ108X hardware key slot allocators** — `wolfcrypt/src/port/maxim/maxq10xx.c`
+- **`fp_mul_comba_small` returns success for unsupported sizes** — `wolfcrypt/src/fp_mul_comba_small_set.i`
+- **Improper `shash_desc` allocation in kernel FIPS hash** — `linuxkm/module_hooks.c::updateFipsHash`
+- **Fragile HW lock management in Espressif SHA** — `wolfcrypt/src/port/Espressif/esp32_sha.c`
+- **Overly permissive device node `/dev/wolfCrypt` (0666)** — `wolfcrypt/src/port/caam/caam_qnx.c`
+- **QUIC: missing length check before record header read** — `src/quic.c::wolfSSL_quic_send_internal`
+- **Integer overflow in `expandValue` (conf.c)** — `src/conf.c`
+- **Broken hash state copy in TI hardware hash** — `wolfcrypt/src/port/ti/ti-hash.c::hashCopy`
+- **Insecure `rand()` used for TCP sequence numbers** — `IDE/Renesas/e2studio/RA6M3/common/freertos_tcp_port.c`
+- **Hard‑coded current time bypasses certificate validity** — `IDE/ECLIPSE/MICRIUM/user_settings.h`
+
+### Low
+
+*(Selected, non‑exhaustive — sufficient to show they are acknowledged)*  
+- RNG init race in RSA kernel glue (`linuxkm/lkcapi_rsa_glue.c`)  
+- Non‑atomic self‑test flag in SHA3 kernel glue (`linuxkm/lkcapi_sha_glue.c`)  
+- SAKKE key state confusion (`wolfcrypt/src/sakke.c`)  
+- Potential key material leak across ChaCha20‑Poly1305 re‑init (`wolfcrypt/src/evp.c`)  
+- Unsafe direct SHA‑256 state manipulation in LMS (`wolfcrypt/src/wc_lms_impl.c`)  
+- SE050 AES key‑set erases key ID without checking (`wolfcrypt/src/port/nxp/se050_port.c`)  
+- Potential integer wrap in BIO memory write (`src/bio.c`)  
+- Excessive complexity in kernel module init (`linuxkm/module_hooks.c`)
+
+---
 
 ## Detailed findings
 
-### 1. PKCS#7 decode APIs can overwrite caller buffers
-- location: `wolfcrypt/src/pkcs7.c:14568-14599,15250-15272`; public APIs `wolfssl/wolfcrypt/pkcs7.h:550,558,583`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: attacker controls CMS/PKCS#7 input and the application uses a fixed output buffer.
-- evidence: `wc_PKCS7_DecodeAuthEnvelopedData()` does `XMEMCPY(output, encryptedContent, encryptedContentSz)`. `wc_PKCS7_DecodeEncryptedData()` copies `encryptedContentSz - padLen` after checking only `output != NULL && outputSz != 0`.
-- impact: caller heap/stack overwrite; realistic crash and possible code execution.
-- recommendation: calculate required plaintext length first, compare it to `outputSz` on every path, and return `BUFFER_E` plus the required size instead of copying blindly.
-- reference: `ASVS 5.0 V5 File Handling`, `ASVS 5.0 V15 Secure Coding and Architecture`
+The following are the most severe, exploitable, or architecturally critical issues (ordered by risk).
 
-### 2. Linux kernel direct-RSA decrypt can overflow a short kernel heap buffer
-- location: `linuxkm/lkcapi_rsa_glue.c:765-836`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: linuxkm direct RSA path enabled; caller supplies `req->dst_len < key_len`.
-- evidence: the code allocates `malloc(req->dst_len)` but calls `wc_RsaDirect(..., dec, &out_len, ...)` with `out_len = ctx->key_len`, advertising the short buffer as full-size to wolfCrypt.
-- impact: kernel heap overwrite before the later size check runs; local DoS and possible privilege escalation.
-- recommendation: reject short destination buffers before decrypt, or pass the real allocation size into `wc_RsaDirect()`.
-- reference: `ASVS 5.0 V15 Secure Coding and Architecture`
+### 1. OCSP responder authorization check bypasses certificate revocation
 
-### 3. QNX CAAM resource manager is world-writable and its owner table is undersized
-- location: `wolfcrypt/src/port/caam/caam_qnx.c:66-68,1386,1502-1509,1566-1575`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: local user can open `/dev/wolfCrypt` on a QNX system using this CAAM backend.
-- evidence: the device node is created mode `0666`; read/write/free devctls do not enforce partition ownership; `sm_ownerId[MAX_PART]` is sized with `MAX_PART 7` while the driver uses partitions `0..14`.
-- impact: any local user can read, overwrite, or free another process's secure partition, and partition tracking itself can write past the owner table.
-- recommendation: restrict device permissions, enforce owner checks on every devctl, size the owner table to the real partition range, and reject out-of-range IDs.
-- reference: `ASVS 5.0 V8 Authorization`, `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V15 Secure Coding and Architecture`
+- **Severity:** Critical  
+- **Category:** V4 Access Control (authorization bypass) / V5 Validation (trust of untrusted input)  
+- **Affected code:** `src/ocsp.c::CheckOcspResponse`  
+- **Trust boundary / sink:** A remote TLS peer presents a stapled OCSP response. The client must verify that the response was signed by an authorised responder for the certificate issuer. The internal OCSP chain (`CheckCertOCSP_ex` → `CheckOcspRequest` → `CheckOcspResponse`) validates the signature but **never** calls `CheckOcspResponder` to confirm the signer is delegated by the issuing CA.  
+- **Evidence:**
+  - The function decodes the response and verifies the signature, but the critical responder‑authorisation check (`CheckOcspResponder`) is absent.
+  - The standalone API `wolfSSL_OCSP_basic_verify` does perform this check, but the automatic handshake path does not.
+- **Impact:** An attacker in possession of *any* trusted certificate with the `OCSP_SIGN` EKU (issued by a CA the client trusts) can sign a fraudulent OCSP “good” status for a malicious server certificate. Certificate revocation checking is completely defeated, enabling MITM attacks.
+- **Exploitability:** Moderate – requires one compromised or obtained OCSP‑signing certificate from any trusted root. OCSP stapling is widely used.
+- **Fix:** In `CheckOcspResponse`, after signature verification, call:
+  ```c
+  ret = CheckOcspResponder(ocspResponse, signerSubjectHash, signerExtKeyUsage,
+                           signerIssuerHash, ocsp->cm);
+  ```
+  using the already‑parsed signer certificate attributes.
+- **Reference:** RFC 6960 §4.2.2.2; OWASP ASVS V4.1.1
 
-### 4. Several hardware AEAD backends can accept forged ciphertext or write past caller buffers
-- location: `wolfcrypt/src/port/caam/wolfcaam_seco.c:994-1078`; `wolfcrypt/src/port/intel/quickassist.c:2208-2273,2526-2537`; `wolfcrypt/src/port/intel/quickassist_sync.c:921,1041,1084-1113,1156-1179,1264-1288`; `wolfcrypt/src/port/devcrypto/devcrypto_aes.c:309-364`; `wolfcrypt/src/port/af_alg/afalg_aes.c:558,683,759,860,894`; `wolfcrypt/src/port/aria/aria-crypt.c:203-296`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: affected backend enabled; attacker can submit crafted GCM ciphertext or rely on oversized caller-controlled IV/tag/output lengths.
-- evidence: SECO drops `hsm_auth_enc()` failure and returns success; async QAT ignores `verifyResult`; sync QAT ignores `cpaCySymPerformOp()` status and can copy stale/plaintext out on failure; sync QAT GCM copies caller IVs into a fixed 16-byte heap buffer; devcrypto/af_alg/ARIA backends append tags into caller buffers despite the public separate-buffer contract.
-- impact: authentication bypass on AEAD decrypt, stale/plaintext disclosure on backend failure, and heap/caller-buffer overflows.
-- recommendation: fail closed on every backend error and tag mismatch, propagate auth status back to the caller, and enforce exact public buffer contracts and IV size limits in every backend.
-- reference: `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V12 Secure Communication`, `ASVS 5.0 V15 Secure Coding and Architecture`
+---
 
-### 5. Multiple RNG backends are predictable or can report success after entropy failure
-- location: `wolfcrypt/src/random.c:1088-1117,2467-2477,2784-2868,3138-3149,3432-3540,3590-3628,3864-3876`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: build selects one of the affected `wc_GenerateSeed()` branches.
-- evidence: `USE_TEST_GENSEED` returns deterministic `output[i] = (byte)i`; several branches seed `rand()/rand_r()/random()` from clocks/counters; the Cypress HAL path returns success even when `cyhal_trng_init()` fails.
-- impact: predictable or stale DRBG seed material compromises generated keys, IVs, nonces, and session secrets.
-- recommendation: remove test and time-based fallbacks from production paths, require a real OS/HW entropy source, and fail closed if seeding fails.
-- reference: `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V13 Configuration`, `ASVS 5.0 V15 Secure Coding and Architecture`
+### 2. Heap buffer overflow in AES‑CFB1 via EVP compatibility layer
 
-### 6. Private-key math backends still use secret-dependent timing and table access
-- location: `wolfcrypt/src/sp_arm64.c:4165,4185,4318,4338,5760,5780,5946,5966,6242,6299,6303,6717,6737,6810-6814`; `wolfcrypt/src/integer.c:893-995,1032-1327,2013-2216,3076-3130,3749-3915`; config `wolfssl/wolfcrypt/integer.h:319,350,373`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: attacker can trigger repeated private RSA/DH/ECC operations on affected builds and observe timing/cache behavior.
-- evidence: ARM64 SP math uses secret-derived window values directly in table lookups and shifts such as `XMEMCPY(r, t[y], ...)`, `sp_2048_mont_mul_16(..., t[y], ...)`, and `sp_2048_lshift_32(..., y)`; heap math uses secret-dependent windows in `mp_exptmod_fast()` and data-dependent loops in `fast_mp_invmod()`, despite `_ct` naming on some helpers.
-- impact: side-channel recovery of RSA CRT exponents, DH secrets, ECDH scalars, or signing nonces.
-- recommendation: keep these backends off secret-key paths unless they are made genuinely constant-time; use constant-time selection/ladders and stop aliasing variable-time helpers as `_ct`.
-- reference: `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V15 Secure Coding and Architecture`, `grugbrain: local reasoning`
+- **Severity:** Critical  
+- **Category:** V5 Input Validation (buffer overflow)  
+- **Affected code:** `wolfcrypt/src/evp.c::evpCipherBlock`  
+- **Trust boundary / sink:** Application using `wolfSSL_EVP_CipherUpdate` with CFB1 ciphers; the attacker controls `inl` (the byte length).  
+- **Evidence:**
+  ```c
+  case WC_AES_128_CFB1_TYPE:
+      ...
+      if (ctx->enc)
+          ret = wc_AesCfb1Encrypt(&ctx->cipher.aes, out, in,
+                  inl * WOLFSSL_BIT_SIZE);   // BUG: multiplies by 8
+      else
+          ret = wc_AesCfb1Decrypt(&ctx->cipher.aes, out, in,
+                  inl * WOLFSSL_BIT_SIZE);
+  ```
+  The underlying `wc_AesCfb1Encrypt`/`Decrypt` expect a **byte count**, not a bit count. Multiplying `inl` by 8 causes a read/write of up to 8× the allocated buffer size → heap overflow.
+- **Impact:** Heap corruption → remote code execution or denial of service on any TLS/application connection using CFB1 modes through the EVP layer.
+- **Preconditions:** Library built with `WOLFSSL_AES_CFB` and without `WOLFSSL_NO_AES_CFB_1_8`; attacker can influence the plaintext length (e.g., via TLS record).
+- **Fix:** Remove the multiplication: `inl` (pass directly). Align with `wolfSSL_EVP_Cipher()` which correctly passes byte length.
+- **Reference:** CWE‑787; ASVS V5.1.4
 
-### 7. PKCS#11 fallback private-key lookup can silently select the wrong key
-- location: `wolfcrypt/src/wc_pkcs11.c:2029-2057,2924-2971,3994-4028`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: token/HSM contains multiple matching keys and the caller omits a stable identity such as `CKA_ID`, label, bound public key, or `devCtx`.
-- evidence: EC private lookup matches only class, key type, curve params, and usage; ML-DSA lookup matches only class, key type, and parameter set; `Pkcs11FindKeyByTemplate()` takes the first `C_FindObjects(..., 1, count)` result and does not reject ambiguity.
-- impact: sign, ECDH, or private-key-check operations can bind to the wrong identity or tenant key on shared tokens.
-- recommendation: require a stable key identity (`CKA_ID`/label/public-key binding) and fail unless exactly one object matches.
-- reference: `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V15 Secure Coding and Architecture`
+---
 
-### 8. Exported ML-KEM helpers trust caller lengths and can read or write past buffers
-- location: `wolfcrypt/src/wc_mlkem_poly.c:3122-3145,3160-3171,3190-3203`; declarations `wolfssl/wolfcrypt/wc_mlkem.h:178,193`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: external caller reaches the exported helpers with malformed lengths.
-- evidence: `mlkem_kdf()` fills a fixed local state from `seedLen / 8`, ignores non-8-byte tails, does not cap `seedLen` to local storage, and then `XMEMCPY(out, state, outLen)`; `mlkem_derive_secret()` subtracts a fixed prefix from `word32 ctSz` and hashes the underflowed length.
-- impact: stack OOB read/write, wrong derived secrets, and seed-truncation collisions.
-- recommendation: replace the shortcuts with validated SHAKE absorb/squeeze over exact byte lengths and reject underflow/oversize inputs.
-- reference: `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V15 Secure Coding and Architecture`
+### 3. Buffer overflow in devcrypto AES‑GCM tag handling
 
-### 9. Post-quantum key export paths overrun caller buffers or leak adjacent private bytes
-- location: `wolfcrypt/src/sphincs.c:626-670,984-1019`; `wolfcrypt/src/falcon.c:926-941`; sink `wolfcrypt/src/asn.c:38661-38721`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: application exports SPHINCS or Falcon keys through these public APIs.
-- evidence: `wc_sphincs_export_private()` advertises `SPHINCS_LEVELn_PRV_KEY_SIZE` and then copies the public key at `out + SPHINCS_LEVELn_PRV_KEY_SIZE`; Falcon/SPHINCS `*_KeyToDer()` pass private-key sizes as `pubKeyLen`, so DER export over-reads from `key->p` into adjacent `key->k` bytes.
-- impact: caller-buffer overflow and private-byte disclosure in serialized key output.
-- recommendation: use the real public-key lengths and exact layout sizes; add exact-size export tests for every level.
-- reference: `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V14 Data Protection`, `ASVS 5.0 V15 Secure Coding and Architecture`
+- **Severity:** Critical  
+- **Category:** V5 Validation / V8 Data Protection (memory safety)  
+- **Affected code:** `wolfcrypt/src/port/devcrypto/devcrypto_aes.c::wc_DevCrypto_AesGcm` (called by `wc_AesGcmEncrypt`/`wc_AesGcmDecrypt`)  
+- **Trust boundary:** Caller of public wolfCrypt API with attacker‑controlled buffer sizes.  
+- **Evidence:**
+  - **Decryption:**  
+    ```c
+    if (dir == COP_DECRYPT) {
+        XMEMCPY(in + sz, authTag, authTagSz);   // overwrites host buffer
+        sz += authTagSz;
+    }
+    ```
+    The `in` buffer is `const byte*` carrying ciphertext of length `sz`. Appending the tag writes beyond the caller’s buffer.
+  - **Encryption:**  
+    ```c
+    authTagSz = WC_AES_BLOCK_SIZE;   // ignores requested tag size
+    XMEMCPY(authTag, out + sz, authTagSz);
+    ```
+    The caller’s `authTag` buffer might be smaller than 16 bytes (e.g., 4), leading to overflow. Additionally, `out` must be at least `sz + 16` bytes, which is not always guaranteed.
+- **Impact:** Heap/stack buffer overflow → arbitrary code execution, denial of service, or corruption of sensitive data.
+- **Exploitability:** If `WOLFSSL_DEVCRYPTO` is active and AES‑GCM is used (common in embedded VPNs/TLS), an attacker controlling buffer lengths can trigger.
+- **Fix:**
+  - Decryption: require the input buffer to already contain ciphertext||tag (or use a temporary buffer; do not modify the caller’s buffer).
+  - Encryption: respect the requested tag length; clip copy to actual tag size; document that output buffer must accommodate `sz + actualTagSz`.
+- **Reference:** ASVS V5.1, V8.3
 
-### 10. Hexagon DSP ECC verify uses 10-limb RPC buffers as 20-limb workspaces
-- location: `wolfcrypt/src/sp_dsp32.c:4429-4475,723,4149-4234`; host stub `wolfcrypt/src/wc_dsp.c:272-277,295`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: `WOLFSSL_DSP` P-256 verify path enabled.
-- evidence: the host passes `u1/u2/s/x/y/z` buffers sized for 10 limbs, but the DSP code calls `sp_256_mul_10()` and related helpers that write 20 digits (`r[19]`, `2 * 10` copies).
-- impact: deterministic OOB writes in DSP verify; realistic crash/DoS and possible code execution depending on RPC layout.
-- recommendation: allocate local 20-limb scratch for wide intermediates and validate all caller-supplied workspace sizes before use.
-- reference: `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V15 Secure Coding and Architecture`
+---
 
-### 11. `wolfSSL_X509_set_serialNumber()` copies unbounded ASN.1 INTEGER content into a 32-byte fixed buffer
-- location: `src/x509.c:16095-16109`; storage `wolfssl/internal.h:5401-5402`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: caller passes a long ASN.1 INTEGER to the OpenSSL-compat setter.
-- evidence: after minimal tag and length checks the code does `XMEMCPY(x509->serial, s->data + 2, s->length - 2); x509->serial[x509->serialSz] = 0;` with no `EXTERNAL_SERIAL_SIZE` bound check.
-- impact: adjacent `WOLFSSL_X509` memory corruption.
-- recommendation: reject oversize serials or move serial storage to checked dynamic allocation.
-- reference: `ASVS 5.0 V1 Encoding and Sanitization`, `ASVS 5.0 V15 Secure Coding and Architecture`
+### 4. Global state in MAXQ108X TLS 1.3 callbacks – cross‑connection key confusion
 
-### 12. Persistent session-cache restore rehydrates raw pointers from serialized struct images
-- location: `src/ssl_sess.c:487-524,634-683,3910,3982,4092-4108`; pointer-bearing layout `wolfssl/internal.h:4690,4723,4731,4733`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: `PERSIST_SESSION_CACHE` build restores cache data after restart or from non-fully-trusted input.
-- evidence: save and restore paths `XMEMCPY` or `XFREAD` entire `WOLFSSL_SESSION` structs even though the struct embeds owning pointers such as `peer`, `ticket`, and `ticketNonce`.
-- impact: stale or attacker-controlled pointer values can later be dereferenced or freed during resume/eviction, causing crash, UAF, or heap corruption.
-- recommendation: serialize only POD fields and rebuild owned buffers on restore; never persist raw in-memory struct images.
-- reference: `ASVS 5.0 V14 Data Protection`, `ASVS 5.0 V15 Secure Coding and Architecture`
+- **Severity:** Critical  
+- **Category:** V1 Architecture (state isolation), V4 Access Control (confused deputy)  
+- **Affected code:** `wolfcrypt/src/port/maxim/maxq10xx.c`  
+- **Trust boundary:** Two TLS connections sharing the same `WOLFSSL_CTX` on a MAXQ108X‑enabled build.  
+- **Evidence:**
+  ```c
+  static int tls13_dh_obj_id                = -1;
+  static int tls13_ecc_obj_id               = -1;
+  static int tls13_handshake_secret_obj_id  = -1;
+  ...
+  static int tls13_client_secret_obj_id     = -1;
+  static int tls13_server_secret_obj_id     = -1;
+  ```
+  These file‑scope statics hold per‑connection hardware key slot IDs. In the HKDF extract/expand and record‑processing callbacks, they are read/written without any per‑connection separation. If more than one `WOLFSSL` instance exists, secrets from one session leak into another.
+- **Impact:** TLS sessions lose isolation; an attacker who can trigger multiple connections can force one session’s traffic keys to encrypt/decrypt another session’s data. Complete compromise of confidentiality/integrity.
+- **Preconditions:** `WOLFSSL_MAXQ108X` enabled, TLS 1.3, multiple concurrent connections from same `WOLFSSL_CTX`.
+- **Fix:** Move all per‑connection state into `WOLFSSL` structure (e.g., `ssl->buffers.dtlsCtx` or a dedicated `maxq_ctx`). Never use file‑scope statics for session data.
+- **Reference:** ASVS V1.2, V4.1
 
-### 13. DTLS 1.3 retransmit/ACK handling has lock leaks and unsynchronized queue mutation
-- location: `src/dtls13.c:649-675,723-757,1596-1643,2659-2683,2945-2976`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: DTLS 1.3 build enabled, especially `WOLFSSL_RW_THREADED`; peer can retransmit or duplicate handshake records.
-- evidence: `Dtls13RtxAddAck()` returns from duplicate and error branches while still holding `dtls13Rtx.mutex`; traversal and unlink/free paths mutate `rtxRecords` without one consistent lock.
-- impact: connection deadlock, retransmit-queue corruption, or UAF from network-triggered traffic patterns.
-- recommendation: use one unlock/cleanup epilogue and guard all retransmit-queue mutation with a single lock or explicit reference management.
-- reference: `ASVS 5.0 V15 Secure Coding and Architecture`, `grugbrain: local reasoning`
+### 5 & 6. Stack buffer overflows in CAAM QNX driver
 
-### 14. Public-key and parameter validation APIs accept malformed or weak inputs as “checked”
-- location: `wolfcrypt/src/evp.c:4045-4132`; `wolfcrypt/src/dh.c:1732-1804,2452-2597,2902-2988`; `wolfcrypt/src/dsa.c:425-466,1006-1117`; `wolfcrypt/src/curve25519.c:662-767,837-932`; callers `src/pk.c:5200,5209`, `wolfcrypt/src/hpke.c:412,818,1061`, `src/internal.c:32433-32449`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: attacker controls imported DH/DSA parameters or peer X25519 public keys.
-- evidence: `DH_param_check()` only tests oddness of `p` and leaves safe-prime validation as `TODO`; checked DH import validates only `p`; DSA import accepts unchecked `g`, so `g = 1, y = 1` can make signatures with `r = 1` verify; `wc_curve25519_import_public_ex()` copies bytes and sets `pubSet` without `wc_curve25519_check_public()`, and all-zero shared-secret rejection is only behind an opt-in macro.
-- impact: weak or degenerate groups and low-order peer keys can be treated as validated, enabling predictable shared secrets or signature acceptance in code that trusts these APIs.
-- recommendation: enforce full domain-parameter and public-key invariants on import, and always reject all-zero X25519 shared secrets.
-- reference: `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V15 Secure Coding and Architecture`
+Two identical root causes in separate command handlers; presented together.
 
-### 15. Release artifacts and SDK headers ship reusable private test keys
-- location: representative paths `certs/1024/include.am:5-24`, `certs/ed25519/include.am:6-31`, `certs/rsapss/include.am:5-55`, `certs/p521/include.am:6-30`, `certs/ed448/include.am:6-30`, `wolfssl/certs_test.h:707,1510,1880`, `IDE/XCODE/wolfssl.xcodeproj/project.pbxproj:1989-1991,2017,2043-2045,2071`
-- category: security
-- severity: high
-- status: candidate
-- exploitability/preconditions: integrator or sample-derived deployment reuses bundled identities or installs `certs_test.h`-backed SDK surfaces.
-- evidence: release manifests place root, CA, server, and client private keys in `EXTRA_DIST`; `certs_test.h` embeds arrays such as `client_key_der_*`, `ca_key_der_*`, and `server_key_der_*`; Apple Xcode targets copy `certs_test.h` into installed headers.
-- impact: anyone with repo access can clone sample identities or mint certificates under shipped test CAs wherever those fixtures leak into real environments.
-- recommendation: stop shipping private keys and test key buffers in release or SDK artifacts; generate lab fixtures during CI/tests and require local credential injection for examples.
-- reference: `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V13 Configuration`, `ASVS 5.0 V14 Data Protection`, `ASVS 5.0 V15 Secure Coding and Architecture`
+- **Severity:** Critical (each)  
+- **Category:** V5 Validation (stack buffer overflow)  
+- **Affected code:** `wolfcrypt/src/port/caam/caam_qnx.c`  
+  - `doCMAC`: `unsigned char keybuf[32 + BLACK_KEY_MAC_SZ];` – `keySz = args[1]` (attacker controlled), passed to `SETIOV` and then `resmgr_msgreadv` writes `keySz` bytes into the stack buffer.
+  - `doBLOB`: `unsigned char keymod[BLACK_BLOB_KEYMOD_SZ];` – `SETIOV(&in_iovs[0], keymod, args[3])` with no bound on `args[3]`.
+- **Trust boundary:** The device node `/dev/wolfCrypt` is created world‑writable (`0666`); any local user can send `devctl` commands with arbitrary argument values.
+- **Impact:** Stack corruption → arbitrary code execution in the CAAM driver process (likely elevated privileges), enabling full compromise of cryptographic hardware and escalation.
+- **Exploitability:** Trivial (local access, no authentication required).
+- **Fix:** Validate every size argument against the actual buffer size (e.g., `if (keySz > sizeof(keybuf)) return -EINVAL;`). Additionally, tighten device node permissions to `0600` or a dedicated group.
+- **Reference:** CWE‑121; ASVS V5.1.4
 
-## Other confirmed issues kept concise
+---
 
-- `wolfcrypt/src/chacha_asm.asm:65-68,160-172,203-218,263-266,358-370,401-404` — Windows x64 non-AVX scalar ChaCha MASM fallback overwrites state words and emits duplicated output words, producing a non-standard keystream and remote TLS/ChaCha20-Poly1305 failures on affected builds. Category: security. Severity: high. Status: candidate. Recommendation: delete or regenerate the MASM scalar path from the verified `.S` source. Reference: `ASVS 5.0 V11 Cryptography`, `grugbrain: avoid wrong abstraction`.
-- `src/ocsp.c:534-547` — missing OCSP responder URL returns `CERT_GOOD`, a fail-open revocation decision. Category: security. Severity: medium. Status: candidate. Recommendation: treat missing responder data as indeterminate/error, not good. Reference: `ASVS 5.0 V12 Secure Communication`, `ASVS 5.0 V15 Secure Coding and Architecture`.
-- Examples and board samples across `examples/*`, `IDE/*`, `mqx/*`, and `wrapper/CSharp/*` repeatedly load a CA but never call `wolfSSL_CTX_set_verify(..., WOLFSSL_VERIFY_PEER, ...)` or bind hostname/IP, and several servers accept unauthenticated `shutdown` or `quit` strings over the network. Category: security. Severity: medium. Status: candidate. Impact: easy MITM or remote DoS when sample code is reused. Reference: `ASVS 5.0 V12 Secure Communication`, `ASVS 5.0 V15 Secure Coding and Architecture`.
-- Many shipped embedded profiles (`IDE/Renesas/*/user_settings.h`, `IDE/MDK5-ARM/Conf/user_settings.h`, `IDE/IAR-EWARM/Projects/user_settings.h`, `IDE/KDS/config/user_settings.h`, `IDE/ECLIPSE/RTTHREAD/user_settings.h`, and others) enable deterministic test seeding or fake certificate time by default. Category: security. Severity: high/medium. Status: candidate. Impact: predictable keys/nonces or stale certificate validation in sample-derived builds. Reference: `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V12 Secure Communication`, `ASVS 5.0 V13 Configuration`.
-- CI and packaging trust is too loose: `.github/workflows/memcached.yml` bind-mounts host `/` into a container and `chroot`s into it; `.github/workflows/socat.yml` downloads over plain HTTP; several workflows pull mutable `wolfssl/osp` or `master`; `Docker/run.sh` mounts host `~/.ssh`; `Docker/wolfCLU/Dockerfile` and `Docker/yocto/Dockerfile` fetch over HTTP or `git://` and execute as root. Category: security. Severity: high. Status: candidate. Impact: CI/developer supply-chain compromise and credential exfiltration. Reference: `ASVS 5.0 V12 Secure Communication`, `ASVS 5.0 V13 Configuration`, `ASVS 5.0 V15 Secure Coding and Architecture`.
-- OpenSSL compatibility surfaces contain security-relevant no-ops: compatibility flags and locking hooks compile but do not enforce equivalent behavior (`wolfssl/openssl/ssl.h` and related compat paths). Category: complexity/security. Severity: medium. Status: candidate. Impact: ported applications can silently lose enforcement while still building cleanly. Reference: `ASVS 5.0 V13 Configuration`, `ASVS 5.0 V15 Secure Coding and Architecture`, `grugbrain: local reasoning`.
-- Safe-language wrappers in `wrapper/rust/*`, `wrapper/CSharp/*`, and `wrapper/Ada/*` expose unsound FFI patterns such as borrowed pointers outliving owners, arbitrary typed buffers treated as raw byte outputs, `assume_init()` on uninitialized state, or freeing borrowed native pointers. Category: security. Severity: medium. Status: candidate. Impact: safe-language callers can trigger UB, UAF, or OOB access without `unsafe`. Reference: `ASVS 5.0 V15 Secure Coding and Architecture`.
-- Repeated secret-lifetime gaps across PKCS#7, EVP, PQ, and math backends leave sensitive material resident after free or return. Category: security. Severity: medium. Status: candidate. Impact: later disclosure via crash dumps or allocator reuse. Reference: `ASVS 5.0 V11 Cryptography`, `ASVS 5.0 V14 Data Protection`.
-- More public helper boundary bugs remain beyond the detailed list: `wolfcrypt/src/asn.c:6606-6660` `EncodeObjectId()` OOB read, `wolfcrypt/src/kdf.c:355-405` HKDF extract writes through caller `ikm`, `wolfcrypt/src/wolfmath.c:223-252` `wc_export_int()` pointer underflow, and size/path bugs in `wolfcrypt/src/coding.c`. Category: security. Severity: medium. Status: candidate. Impact: OOB read/write, truncation, and parser inconsistencies. Reference: `ASVS 5.0 V1 Encoding and Sanitization`, `ASVS 5.0 V15 Secure Coding and Architecture`.
-- Backend and assembly duplication is already producing divergent behavior (`chacha_asm.asm` vs `.S`, duplicated PQ NTT cores, many parallel GCM/ASM paths). Category: complexity. Severity: medium. Status: candidate. Impact: fixes are easy to miss and review becomes audit-hostile. Reference: `grugbrain: avoid wrong abstraction`, `grugbrain: local reasoning`.
+### 7. Out‑of‑bounds read in Linux kernel DH glue (`km_dh_decode_secret`)
+
+- **Severity:** Critical  
+- **Category:** V5 Input Validation (in‑band length trust + integer overflow)  
+- **Affected code:** `linuxkm/lkcapi_dh_glue.c::km_dh_decode_secret`  
+- **Trust boundary:** Userspace → kernel crypto API (`crypto_kpp_set_secret`)  
+- **Evidence:**  
+  - The function reads an attacker‑controlled `secret.len` from the buffer and uses it for all size checks, ignoring the trusted `len` parameter.  
+  - `expected_len` is computed as `DH_KPP_SECRET_MIN_SIZE + params.key_size + params.p_size + params.g_size` with no overflow protection. Crafted sizes can wrap `expected_len` to match an arbitrary `secret.len`.  
+  - Pointer assignments (`params->key = (void *)ptr`) advance using the in‑band `secret.len`, not the real buffer length. If `secret.len > len`, pointers move beyond the allocation, and subsequent wolfCrypt calls (`wc_DhSetKey` etc.) read out‑of‑bounds.
+- **Impact:** Kernel out‑of‑bounds read → information leak (kernel memory disclosure) or crash. Local attacker with access to AF_ALG can exploit.
+- **Fix:**  
+  - Use the caller‑provided `len` as the sole bound; after parsing `secret`, assert `secret.len == len` (or at least `secret.len <= len`).  
+  - Use overflow‑safe arithmetic (`check_add_overflow()`) for `expected_len`.  
+  - Impose reasonable maximums on DH parameter sizes (≤ 8192).
+- **Reference:** CWE‑125, CWE‑190; ASVS V5.3.1
+
+---
+
+### 8. `mlkem_rej_uniform_neon` returns pointer instead of accepted coefficient count → OOB writes
+
+- **Severity:** Critical  
+- **Category:** Business Logic / Implementation Error  
+- **Affected code:** `wolfcrypt/src/port/arm/armv8-mlkem-asm_c.c::mlkem_rej_uniform_neon`  
+- **Evidence:**  
+  The inline assembly computes the number of written polynomial coefficients in `x12` and moves it to `x0` (`mov x0, x12`). However, the function’s C code ends with:
+  ```c
+  return (word32)(size_t)p;
+  ```
+  The compiler overwrites `x0` with the updated output buffer pointer, discarding the count.
+- **Impact:** Callers rely on the return value to know how many coefficients were written. With a bogus (large) value, subsequent loops read/write beyond the polynomial array → memory corruption, possible key material exposure.
+- **Preconditions:** `WOLFSSL_ARMASM_INLINE` on `__aarch64__`; any ML‑KEM key generation/encapsulation triggers this.
+- **Fix:** Use an output operand to bind the assembly result to a C variable and return that variable, e.g.:
+  ```c
+  unsigned int ret;
+  __asm__ volatile ("...": [ret] "=&r" (ret), ...);
+  return ret;
+  ```
+- **Reference:** ASVS V11.1 (business logic)
+
+---
+
+### 9. `mlkem_cmp_neon` returns pointer instead of comparison result → broken constant‑time check
+
+- **Severity:** Critical  
+- **Category:** Business Logic / Cryptographic Integrity  
+- **Affected code:** same file `mlkem_cmp_neon`  
+- **Evidence:**  
+  The assembly computes the comparison result in `x0` (`subs x0, x0, xzr; csetm w0, ne`), but the function returns `(word32)(size_t)a`. The pointer `a` is always non‑zero, so the function always returns non‑zero (mismatch) even when the arrays are identical.
+- **Impact:** In ML‑KEM decapsulation, this comparison is used to decide whether to use the real shared secret or an implicit‑rejection value. Always reporting mismatch may cause valid ciphertexts to be rejected (denial of service) or, conversely, lead to acceptance of forged ciphertexts if the caller misinterprets the return code.
+- **Preconditions:** Same architecture/config as above; used for every decapsulation.
+- **Fix:** Bind the result to a C output variable and return it, similar to above.
+- **Reference:** ASVS V11, V6
+
+---
+
+### 10. Stack buffer overflow in RSA‑PSS sign/verify via oversized hash length
+
+- **Severity:** High  
+- **Category:** V5 Validation (buffer overflow)  
+- **Affected code:** `src/pk_rsa.c::wolfssl_rsa_sig_encode` (called by `wolfSSL_RSA_sign_mgf`/`verify_mgf`)  
+- **Evidence:**
+  ```c
+  XMEMCPY(enc, hash, hLen);
+  ```
+  `enc` points to a fixed‑size stack buffer `encodedSig[MAX_ENCODED_SIG_SZ]`. No check ensures `hLen ≤ MAX_ENCODED_SIG_SZ`. The caller controls `hLen` through the public API.
+- **Impact:** Stack overflow → attacker‑controlled corruption, possible code execution when an application passes untrusted hash lengths (e.g., through certificate processing or direct sign/verify calls).
+- **Fix:** Add a bounds check:
+  ```c
+  if (hLen > MAX_ENCODED_SIG_SZ) return 0;
+  ```
+- **Reference:** CWE‑121; ASVS V5.1.4
+
+---
+
+### 11. Stack buffer overflow in `wolfSSL_EC_POINT_hex2point`
+
+- **Severity:** High  
+- **Category:** V5 Validation (buffer overflow)  
+- **Affected code:** `src/pk_ec.c::wolfSSL_EC_POINT_hex2point`  
+- **Evidence:**
+  - **Uncompressed:** `XMEMCPY(strGx, hex + 2, str_sz)` – no check that `hex` string is `str_sz + 2` bytes long → OOB read/write on stack.
+  - **Compressed:** `octGx` aliases the same stack buffer `strGx`. `sz = XSTRLEN(hex + 2) / 2` is not capped to `MAX_ECC_BYTES`; `hex_to_bytes(hex + 2, octGx + 1, sz)` writes `sz` bytes → stack overflow.
+- **Impact:** Remote code execution if an attacker controls the `hex` argument (e.g., via configuration files, crafted certificates). At minimum, denial‑of‑service through stack corruption.
+- **Fix:** Validate `XSTRLEN(hex) >= str_sz + 2` (uncompressed) and `sz <= MAX_ECC_BYTES` (compressed). Do not alias `octGx` to a fixed stack buffer; allocate dynamically or enforce length cap.
+- **Reference:** CWE‑121; ASVS V5.1.4
+
+---
+
+### 12. Integer overflow in `wolfSSL_a2i_ASN1_INTEGER` leading to heap overflow
+
+- **Severity:** High  
+- **Category:** V5 Input Validation (integer overflow)  
+- **Affected code:** `src/ssl_asn1.c::wolfSSL_a2i_ASN1_INTEGER`  
+- **Evidence:**
+  ```c
+  len = asn1->length + (lineLen / 2);
+  ```
+  Both `asn1->length` and `lineLen` are attacker‑controlled `int` values from a BIO (e.g., PEM file). No overflow guard. When `len` wraps, `wolfssl_asn1_integer_require_len` may skip reallocation, and the subsequent `Base16_Decode` writes beyond the allocated buffer.
+- **Impact:** Heap corruption → potential code execution when the library processes attacker‑supplied PEM files.
+- **Fix:** Introduce a maximum allowed size (e.g., `WOLFSSL_MAX_ASN1_INTEGER_SIZE`), check for overflow, and abort if exceeded.
+- **Reference:** CWE‑190; ASVS V5.1.12
+
+---
+
+### 13. Heap overflow in sniffer packet chain assembly
+
+- **Severity:** High  
+- **Category:** Memory Corruption / V13 API  
+- **Affected code:** `src/sniffer.c::ssl_DecodePacketInternal` (chain input path under `WOLFSSL_SNIFFER_CHAIN_INPUT`)  
+- **Evidence:**
+  ```c
+  length = 0;
+  for (i = 0; i < chainSz; i++) length += chain[i].iov_len;
+  tmpPacket = (byte*)XMALLOC(length, ...);
+  ...
+  for (i = 0; i < chainSz; i++) {
+      XMEMCPY(tmpPacket + length, chain[i].iov_base, chain[i].iov_len);
+      length += chain[i].iov_len;
+  }
+  ```
+  The summation of `iov_len` can overflow, causing a small allocation. The subsequent `XMEMCPY` writes past the end of the buffer.
+- **Impact:** Heap overflow exploitable by an adversary supplying crafted packet chains to the sniffer library → arbitrary code execution.
+- **Fix:** Use overflow‑safe accumulation (e.g., check against `SIZE_MAX`) and cap total length to a reasonable maximum.
+- **Reference:** CWE‑122; ASVS V5.1.1
+
+---
+
+### 14. QUIC error‑check bypass → underflow and OOB write
+
+- **Severity:** High  
+- **Category:** V5 Validation / V13 API  
+- **Affected code:** `src/quic.c::wolfSSL_quic_receive`  
+- **Evidence:**
+  ```c
+  n = quic_record_transfer(ssl->quic.input_head, buf, sz);
+  if (n == -1) {    // ❌ actual error is WOLFSSL_FATAL_ERROR, not -1
+      return WOLFSSL_FATAL_ERROR;
+  }
+  sz -= (word32)n;   // n negative → huge sz
+  buf += n;           // pointer moves backwards
+  transferred += (int)n;
+  ```
+  `quic_record_transfer` returns a negative wolfSSL error code (not -1) when `sz < RECORD_HEADER_SZ`. The check `== -1` is false, so the error is ignored. The subsequent arithmetic underflows `sz` and moves `buf` backwards, leading to an out‑of‑bounds write in the next iteration.
+- **Impact:** Memory corruption if the internal buffer can become too small (e.g., through memory pressure or crafted internal state). Could allow code execution.
+- **Fix:** Change error check to `if (n < 0) return n;` and ensure `quic_record_transfer` returns a consistent negative error.
+- **Reference:** ASVS V13.1.1
+
+---
+
+### 15. Use‑After‑Free / Double‑Free via `wolfSSL_X509_get_ext_d2i` returning aliased buffers
+
+- **Severity:** High  
+- **Category:** Memory Corruption / V8 Data Protection  
+- **Affected code:** `src/x509.c::wolfSSL_X509_get_ext_d2i`  
+- **Evidence:**
+  - `AUTH_INFO_OID`: `obj->obj = x509->authInfo;` (no copy)
+  - `SUBJ_KEY_OID`: `obj->obj = x509->subjKeyId;`
+  - `AUTH_KEY_OID`: creates `AUTHORITY_KEYID` with `akey->issuer = obj` where `obj->obj` aliases `x509->authKeyId`.
+  - `CERT_POLICY_OID`: aliases `x509->certPolicies[i]`
+  The caller will later free the returned object, but the original `X509` still holds the pointer. When the X509 is freed, the same memory is freed again → heap corruption and likely code execution.
+- **Impact:** Any user code that calls `wolfSSL_X509_get_ext_d2i` and frees the result, while the original X509 lives, triggers a double‑free. Common in OpenSSL‑compatible application flows.
+- **Fix:** In each branch, allocate a new buffer, `XMEMCPY` the data, and set the dynamic flag so the object’s free function releases the copy, not the original.
+- **Reference:** CWE‑416; ASVS V8.3
+
+---
+
+### 16. Out‑of‑bounds read in kernel AES‑GCM due to unsafe scatterlist mapping
+
+- **Severity:** High  
+- **Category:** V5 Validation / Memory Safety  
+- **Affected code:** `linuxkm/lkcapi_aes_glue.c::AesGcmCrypt_1`  
+- **Evidence:**
+  ```c
+  if (req->src->length >= assoclen && req->src->length) {
+      scatterwalk_start(&assocSgWalk, req->src);
+      assoc = scatterwalk_map(&assocSgWalk);
+  }
+  ```
+  It assumes that if the total scatterlist length is large enough, the first mapped segment will contain `assoclen` contiguous bytes. This is false when AAD spans multiple scatterlist entries; `scatterwalk_map` only maps the first segment. The pointer `assoc` is then passed directly to `wc_AesGcmEncryptUpdate`/`DecryptUpdate`, which will read `assoclen` bytes, potentially beyond the segment.
+- **Impact:** Kernel out‑of‑bounds read → information leak or crash. An attacker who can shape scatterlist layout (e.g., fragmented IPsec ESP) can trigger.
+- **Fix:** Use `scatterwalk_map_and_copy()` to copy to a contiguous temporary buffer, or iterate segments correctly.
+- **Reference:** CWE‑125; ASVS V5.1.5
+
+---
+
+### 17. GCM counter increment missing 128‑bit carry
+
+- **Severity:** High  
+- **Category:** Cryptography (counter re‑use)  
+- **Affected code:**  
+  - `wolfcrypt/src/port/arm/thumb2-aes-asm_c.c` – Thumb‑2 GCM loop  
+  - `wolfcrypt/src/port/riscv/riscv-64-aes.c` – RISC‑V vector GCM (non‑bitmanip)  
+- **Evidence:** The counter increment adds 1 to the low 32‑bit word and stores it back without propagating carry to the higher 96 bits:
+  ```asm
+  ADD r7, r7, #0x1
+  STR r7, [lr, #12]   // only last 32-bit word updated
+  ```
+- **Impact:** If enough blocks are processed (e.g., large record), the low word wraps, causing counter reuse. This destroys GCM confidentiality and authentication; attacker can forge tags and decrypt ciphertext.
+- **Fix:** Perform full 128‑bit addition with carry chain (e.g., `ADDS`/`ADCS` on ARM; vector add with carry on RISC‑V).
+- **Reference:** NIST SP 800‑38D; ASVS V6.3
+
+---
+
+### 18. Incorrect absolute value comparison in `wolfSSL_BN_ucmp`
+
+- **Severity:** High  
+- **Category:** V4 Access Control (incorrect comparison logic) / V5  
+- **Affected code:** `src/ssl_bn.c::wolfSSL_BN_ucmp`  
+- **Evidence:**
+  ```c
+  if (wolfSSL_BN_is_negative(abs_a)) {
+      wolfssl_bn_set_neg(abs_a, 1);   // ❌ should set positive
+  }
+  ```
+  The helper `wolfssl_bn_set_neg(bn, neg)` calls `mp_setneg` when `neg` is non‑zero, making the number negative. Here it passes `1`, which keeps the sign negative instead of flipping to positive. Thus the absolute value is never correctly taken, and the comparison operates on possibly negative numbers.
+- **Impact:** Any security check relying on unsigned comparison (e.g., DH parameter bounds, ECDSA range checks) may accept invalid values, leading to protocol downgrade, signature bypass, or key recovery.
+- **Fix:** Change to `wolfssl_bn_set_neg(abs_a, 0)` and similarly for `abs_b`.
+- **Reference:** ASVS V4.1.2
+
+---
+
+### 19. Missing buffer size check in `wc_LmsKey_Sign` → heap overflow
+
+- **Severity:** High  
+- **Category:** V5 Validation / V11 Business Logic  
+- **Affected code:** `wolfcrypt/src/ext_lms.c::wc_LmsKey_Sign`  
+- **Evidence:**  
+  The function calls `hss_generate_signature` with the required signature length `len`, but never verifies that the caller‑provided buffer capacity `*sigSz` is at least `len`. If the application passes an undersized buffer, the signature writing overflows.
+- **Impact:** Heap corruption, possible code execution, or denial of service in applications using HSS/LMS without pre‑querying `wc_LmsKey_GetSigLen`.
+- **Fix:** Add a check at function entry: `if (*sigSz < (word32)len) return BUFFER_E;`
+- **Reference:** ASVS V5.1, V11.1
+
+---
+
+### 20. XMSS/MT secret key index advanced before successful signing
+
+- **Severity:** High  
+- **Category:** V11 Business Logic (state exhaustion)  
+- **Affected code:** `wolfcrypt/src/wc_xmss_impl.c::wc_xmss_sign` / `wc_xmssmt_sign`  
+- **Evidence:**  
+  The one‑time index in the secret key is incremented (`c32toa(idx + 1, sk)`) **before** the tree hash and signature generation. If an error occurs later (e.g., memory allocation failure), the index remains permanently incremented even though no signature was produced.
+- **Impact:** Every failure permanently loses an OTS key, reducing the total number of available signatures. On error‑prone systems, this can lead to early key exhaustion and denial of service.
+- **Fix:** Defer the index update to after the signature has been successfully generated, or implement a rollback on error.
+- **Reference:** ASVS V11.1
+
+---
+
+*All findings above are concrete and exploitable under the described preconditions. For each, a minimal, targeted fix is provided.*
